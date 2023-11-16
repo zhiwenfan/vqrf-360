@@ -166,9 +166,9 @@ class DirectVoxGO(torch.nn.Module):
                     threshold_ema_dead_code=0,
                 )
                 self.split_vq = False
-            
- 
-          
+
+
+
             self.used_kwargs["codebook_size"] = kwargs["codebook_size"]
             self.used_kwargs["use_cosine_sim"] = kwargs["use_cosine_sim"]
             self.used_kwargs["use_vq"] = kwargs["use_vq"]
@@ -176,7 +176,7 @@ class DirectVoxGO(torch.nn.Module):
         self.val_thres=None
         self.imp_thres=[0.015,0.02,0.05]
         print('initialization finished')
-        
+
 
     def _set_grid_resolution(self, num_voxels):
         # Determine grid resolution
@@ -370,7 +370,7 @@ class DirectVoxGO(torch.nn.Module):
             # query for alpha w/ post-activation
             if self.importance is not None:
                 density, sampled_importance = self.density(ray_pts, importance=self.importance)
-            
+
             else:
                 density = self.density(ray_pts, importance=None)
 
@@ -386,7 +386,7 @@ class DirectVoxGO(torch.nn.Module):
                 if sampled_importance is not None:
                     sampled_importance = sampled_importance[mask]
 
-        with utils.Timing('-alpha to weight', debug):   
+        with utils.Timing('-alpha to weight', debug):
             # compute accumulated transmittance
             weights, alphainv_last = Alphas2Weights.apply(alpha, ray_id, N)
             if self.fast_color_thres > 0:
@@ -420,7 +420,7 @@ class DirectVoxGO(torch.nn.Module):
                     viewdirs_emb = torch.cat([viewdirs, viewdirs_emb.sin(), viewdirs_emb.cos()], -1)
                     viewdirs_emb = viewdirs_emb.flatten(0,-2)[ray_id]
                     rgb_feat = torch.cat([k0_view, viewdirs_emb], -1)
-                  
+
                 with utils.Timing('-rgb net - forward', debug):
                     rgb_logit = self.rgbnet(rgb_feat)
                     if self.rgbnet_direct:
@@ -433,7 +433,7 @@ class DirectVoxGO(torch.nn.Module):
                     src=(weights.unsqueeze(-1) * rgb),
                     index=ray_id,
                     out=torch.zeros([N, 3]),
-                    reduce='sum')  
+                    reduce='sum')
 
         rgb_marched += (alphainv_last.unsqueeze(-1) * render_kwargs['bg'])
         ret_dict.update({
@@ -482,7 +482,7 @@ class DirectVoxGO(torch.nn.Module):
         debug = False
         with utils.Timing('-alpha calc', debug):
             # query for alpha w/ post-activation
-           
+
             density, sampled_pseudo_grid = self.density(ray_pts, importance=pseudo_grid)
 
             alpha = self.activate_density(density, interval)
@@ -494,7 +494,7 @@ class DirectVoxGO(torch.nn.Module):
                 density = density[mask]
                 alpha = alpha[mask]
                 sampled_pseudo_grid = sampled_pseudo_grid[mask]
-           
+
             # compute accumulated transmittance
             weights, alphainv_last = Alphas2Weights.apply(alpha, ray_id, N)
             if self.fast_color_thres > 0:
@@ -520,7 +520,7 @@ class DirectVoxGO(torch.nn.Module):
     @torch.no_grad()
     def init_cdf_mask(self, thres_mid=1.0, thres_high=0):
         print("start cdf three split")
-        importance = self.importance.flatten()   
+        importance = self.importance.flatten()
         if thres_mid!=1.0:
             percent_sum = thres_mid
             vals,idx = sorted_importance = torch.sort(importance+(1e-6))
@@ -529,12 +529,12 @@ class DirectVoxGO(torch.nn.Module):
             split_val_nonprune = vals[split_index]
             percent_point = (importance+(1e-6)>= vals[split_index]).sum()/importance.numel()
             print(f'{percent_point*100:.2f}% of most important points contribute over {(percent_sum)*100:.2f}% importance ')
-            self.non_prune_mask = importance>split_val_nonprune 
-        else: 
+            self.non_prune_mask = importance>split_val_nonprune
+        else:
             self.non_prune_mask = torch.ones_like(importance).bool()
-            
 
-        if thres_high!=0 : 
+
+        if thres_high!=0 :
             percent_sum = thres_high
             vals,idx = sorted_importance = torch.sort(importance+(1e-6))
             cumsum_val = torch.cumsum(vals, dim=0)
@@ -611,12 +611,12 @@ class DirectVoxGO(torch.nn.Module):
         self.vq.train()
         all_feat = torch.cat(feat_list).half().float() # [num_elements, k0_dim]
         all_indice = torch.cat(indice_list) # [num_elements, 1]
-       
+
         return all_feat, all_indice
 
     @torch.no_grad()
     def fully_vq_reformat(self, thres_mid=1.0, thres_high=0, save_path=None):
-       
+
         print("start fully vector quantize")
         k0_grid = self.k0.grid.reshape(self.k0_dim,-1)
         k0_grid = k0_grid.T
@@ -627,29 +627,29 @@ class DirectVoxGO(torch.nn.Module):
         print("caculate vq features")
         all_feat, all_indice = self.calc_vector_quantized_feature()
 
-       
+
         print("start cdf three split")
         self.init_cdf_mask(thres_mid=thres_mid, thres_high=thres_high)
 
         new_k0_grid = torch.zeros_like(all_feat)
         new_densiy_grid = torch.zeros_like(density_grid)# - 99999
-        
-       
+
+
         non_prune_density = density_grid[self.non_prune_mask,:]
         non_prune_density = torch.quantize_per_tensor(non_prune_density, scale=non_prune_density.std()/15, zero_point=torch.round(non_prune_density.mean()), dtype=torch.qint8)
-        new_densiy_grid[self.non_prune_mask,:] = non_prune_density.dequantize() 
+        new_densiy_grid[self.non_prune_mask,:] = non_prune_density.dequantize()
         new_k0_grid[self.non_prune_mask,:] = all_feat[self.non_prune_mask,:]
         non_vq_grid = k0_grid[self.keep_mask,:]
         non_vq_grid = torch.quantize_per_tensor(non_vq_grid, scale=non_vq_grid.std()/15, zero_point=torch.round(non_vq_grid.mean()), dtype=torch.qint8)
-        new_k0_grid[self.keep_mask,:] =  non_vq_grid.dequantize() 
-       
-        
-       
+        new_k0_grid[self.keep_mask,:] =  non_vq_grid.dequantize()
+
+
+
         # To ease the implementation of codebook finetuneing, we add indexs of non-vq-voxels to all_indice.
         # note that these part of indexs will not be saved
         all_indice[self.keep_mask] = torch.arange(self.keep_mask.sum())+ self.used_kwargs["codebook_size"]
-        
-            
+
+
         if save_path is not None:
             import numpy as np
             import math
@@ -659,20 +659,20 @@ class DirectVoxGO(torch.nn.Module):
             np.savez_compressed(f'{save_path}/extreme_saving/non_vq_grid.npz',non_vq_grid.int_repr().cpu().numpy())
             np.savez_compressed(f'{save_path}/extreme_saving/non_prune_mask.npz',np.packbits(self.non_prune_mask.reshape(-1).cpu().numpy()))
             np.savez_compressed(f'{save_path}/extreme_saving/keep_mask.npz',np.packbits(self.keep_mask.reshape(-1).cpu().numpy()))
-            
+
             def dec2bin(x, bits):
                 mask = 2 ** torch.arange(bits - 1, -1, -1).to(x.device, x.dtype)
                 return x.unsqueeze(-1).bitwise_and(mask).ne(0).float()
-            
+
             # vq indice was saved in according to the bit length
             bin_indices = dec2bin(all_indice[torch.logical_xor(self.non_prune_mask,self.keep_mask)], int(math.log2(self.used_kwargs["codebook_size"]))).bool().cpu().numpy()
             np.savez_compressed(f'{save_path}/extreme_saving/vq_indexs.npz',np.packbits(bin_indices.reshape(-1)))
-            
+
             codebook = self.vq._codebook.embed.cpu().half().numpy()
             np.savez_compressed(f'{save_path}/extreme_saving/codebook.npz',codebook)
             np.savez_compressed(f'{save_path}/extreme_saving/rgbnet.npz',deepcopy(self.rgbnet).half().cpu().state_dict())
 
-            # we also save necessary metadata 
+            # we also save necessary metadata
             metadata = dict()
             metadata['global_step'] =20000
             metadata['world_size'] = self.world_size
@@ -702,7 +702,7 @@ class DirectVoxGO(torch.nn.Module):
         new_densiy_grid = new_densiy_grid.T.reshape(*self.density.grid.shape).contiguous()
         self.k0.grid = torch.nn.Parameter(new_k0_grid)
         self.density.grid = torch.nn.Parameter(new_densiy_grid)
-       
+
 
         print("finish fully vector quantize")
         return all_indice
@@ -710,14 +710,15 @@ class DirectVoxGO(torch.nn.Module):
 
     @torch.no_grad()
     def fully_vq(self, thres_mid=1.0, thres_high=0, save_path=None):
-       
+
         print("start fully vector quantize")
         dense_grid = self.k0.grid.reshape(self.k0_dim,-1)
         dense_grid = dense_grid.T
 
         density_grid = self.density.grid.reshape(1,-1)
         density_grid = density_grid.T
-       
+        print('>>>>>>>>>>>>> 2:', density_grid.shape)
+
         CHUNK = 8192
         ret_list = []
         indice_list = []
@@ -731,11 +732,11 @@ class DirectVoxGO(torch.nn.Module):
 
 
         self.all_indice_raw = all_indice.detach().clone()
-        
+
         ret_list = torch.cat(ret_list)
 
         print("start cdf three split")
-        importance = self.importance.flatten()   
+        importance = self.importance.flatten()
         if thres_mid!=1.0:
             percent_sum = thres_mid
             vals,idx = sorted_importance = torch.sort(importance+(1e-6))
@@ -745,11 +746,11 @@ class DirectVoxGO(torch.nn.Module):
             percent_point = (importance+(1e-6)>= vals[split_index]).sum()/importance.numel()
             print(f'{percent_point*100:.2f}% of most important points contribute over {(percent_sum)*100:.2f}% importance ')
             top10_mask = importance>split_val_nonprune
-        else: 
+        else:
             top10_mask = torch.ones_like(importance).bool()
-            
 
-        if thres_high!=0 : 
+
+        if thres_high!=0 :
             percent_sum = thres_high
             vals,idx = sorted_importance = torch.sort(importance+(1e-6))
             cumsum_val = torch.cumsum(vals, dim=0)
@@ -764,24 +765,24 @@ class DirectVoxGO(torch.nn.Module):
 
         new_k0_grid = torch.zeros_like(ret_list)
         new_densiy_grid = torch.zeros_like(density_grid)
-       
+
         true_density = density_grid[top10_mask,:]
         true_density = torch.quantize_per_tensor(true_density, scale=true_density.std()/15, zero_point=torch.round(true_density.mean()), dtype=torch.qint8)
         self.true_density = true_density.clone()
-        new_densiy_grid[top10_mask,:] = true_density.dequantize() 
+        new_densiy_grid[top10_mask,:] = true_density.dequantize()
         new_k0_grid[top10_mask,:] = ret_list[top10_mask,:]
 
         true_grid = dense_grid[top1_mask,:]
         true_grid = torch.quantize_per_tensor(true_grid, scale=true_grid.std()/15, zero_point=torch.round(true_grid.mean()), dtype=torch.qint8)
         self.true_grid = true_grid.clone()
         new_k0_grid[top1_mask,:] =  true_grid.dequantize() #dense_grid[top1_mask,:]
-       
-        
-       
+
+
+
         all_indice_raw = all_indice.detach().clone()
         all_indice[top1_mask] = torch.arange(top1_mask.sum())+ self.used_kwargs["codebook_size"]
-      
-            
+
+
         if save_path is not None:
             import numpy as np
             import math
@@ -827,28 +828,28 @@ class DirectVoxGO(torch.nn.Module):
         new_densiy_grid = new_densiy_grid.T.reshape(*self.density.grid.shape).contiguous()
         self.k0.grid = torch.nn.Parameter(new_k0_grid)
         self.density.grid = torch.nn.Parameter(new_densiy_grid)
-       
+
 
         print("finish fully vector quantize")
         return all_indice
 
-   
+
 
     @torch.no_grad()
     def importance_prune(self, prune_percent=0):
-        
+
         print("start importance prune")
-        
+
         k0_grid = self.k0.grid.reshape(self.k0_dim,-1)
         k0_grid = k0_grid.T
 
         density_grid = self.density.grid.reshape(1,-1)
         density_grid = density_grid.T
 
-        importance = self.importance.flatten()    
-        # importance = -self.g_importance.flatten()  
+        importance = self.importance.flatten()
+        # importance = -self.g_importance.flatten()
         _, top_vox_indices = torch.topk(importance, k=int(importance.size(0)*(1-prune_percent)))
-     
+
         new_k0_grid = torch.zeros_like(k0_grid)
         new_k0_grid[top_vox_indices,:] = k0_grid[top_vox_indices,:]
 
@@ -860,7 +861,7 @@ class DirectVoxGO(torch.nn.Module):
 
         self.k0.grid = torch.nn.Parameter(new_k0_grid)
         self.density.grid = torch.nn.Parameter(new_densiy_grid)
- 
+
         print("finish importance prune")
 
 
@@ -879,7 +880,7 @@ class DirectVoxGO(torch.nn.Module):
             ret, indices, commit = self.vq(dense_grid[i:i+CHUNK,:].unsqueeze(0))
             indice_list.append(indices[0])
             ret_list.append(ret[0])
-        
+
     @torch.no_grad()
     def init_vq_flatten(self):
         print('==============init vq with direct trilinear interpolation================')

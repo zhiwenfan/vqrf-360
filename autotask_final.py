@@ -119,6 +119,8 @@ for scene in datasetting["scene_list"]:
     assert os.path.isfile(task['config']), task['config'] + ' does not exist'
     all_tasks.append(task)
 
+print("all_tasks:", all_tasks)
+
 pqueue = Queue()
 for task in all_tasks:
     pqueue.put(task)

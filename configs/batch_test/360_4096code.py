@@ -17,17 +17,17 @@ data = dict(
 )
 
 
-fine_train = dict(
-    N_iters=2000,
-    importance_step=2000,
-    prune_step=2000,
-)
+# fine_train = dict(
+#     N_iters=2000,
+#     importance_step=2000,
+#     prune_step=2000,
+# )
 
-fine_model_and_render = dict(
-    i_fully_vq=1000000,
-)
+# fine_model_and_render = dict(
+#     i_fully_vq=1000000,
+# )
 
-vq_model_and_render = dict(
-    codebook_size=4096,
-)
+# vq_model_and_render = dict(
+#     codebook_size=4096,
+# )
 

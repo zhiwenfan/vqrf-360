@@ -50,7 +50,7 @@ def config_parser():
     parser.add_argument("--eval_lpips_alex", action='store_true')
     parser.add_argument("--eval_lpips_vgg", action='store_true')
     # parser.add_argument("--apply_quant", default=True, type=bool)
-    
+
     # logging/saving options
     parser.add_argument("--i_print",   type=int, default=500,
                         help='frequency of console printout and metric loggin')
@@ -68,9 +68,9 @@ def config_parser():
             help='quantile threshold for prune=voxels')
     parser.add_argument("--k_expire",  type=int,  default=10,
             help='expireed k code per iteration')
-    parser.add_argument("--render_fine",  action="store_true", 
+    parser.add_argument("--render_fine",  action="store_true",
             help='rendering and testing the non compressed model')
-            
+
     return parser
 
 
@@ -316,7 +316,7 @@ def create_new_model_for_vq(cfg, cfg_model, cfg_train, xyz_min, xyz_max, stage, 
     model = model.to(device)
     optimizer = utils.create_optimizer_or_freeze_model(model, cfg_train, global_step=0)
     optimizer.load_state_dict(ckpt['optimizer_state_dict'])
-   
+
     return model, optimizer
 
 def load_existed_model(args, cfg, cfg_train, reload_ckpt_path):
@@ -433,7 +433,7 @@ def scene_rep_reconstruction(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, 
     time0 = time.time()
     global_step = -1
     for global_step in trange(1+start, 1+cfg_train.N_iters):
-        
+
         # renew occupancy grid
         if model.mask_cache is not None and (global_step + 500) % 1000 == 0:
             model.update_occupancy_cache()
@@ -546,7 +546,7 @@ def scene_rep_reconstruction(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, 
             }, path)
             print(f'scene_rep_reconstruction ({stage}): saved checkpoints at', path)
 
-    
+
 
     if global_step != -1:
         torch.save({
@@ -572,9 +572,9 @@ def vq_finetune(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, data_dict, st
             'HW', 'Ks', 'near', 'far', 'i_train', 'i_val', 'i_test', 'poses', 'render_poses', 'images'
         ]
     ]
-   
 
-    
+
+
     print(f'scene_rep_reconstruction (vq fintune): reload from {load_ckpt_path}')
     last_ckpt_path = os.path.join(cfg.basedir, cfg.expname, f'vq_last.tar')
     model, optimizer = create_new_model_for_vq(cfg, cfg_model, cfg_train, xyz_min, xyz_max, stage, load_ckpt_path, strict=False)
@@ -643,9 +643,9 @@ def vq_finetune(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, data_dict, st
     psnr_lst = []
     time0 = time.time()
     global_step = -1
-    
 
-    
+
+
     #=================== Initialize importance score  ====================
     testsavedir = os.path.join(cfg.basedir, cfg.expname)
     stepsize = cfg.fine_model_and_render.stepsize
@@ -662,7 +662,7 @@ def vq_finetune(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, data_dict, st
         'flip_y': cfg.data.flip_y,
         'render_depth': True,
         },
-    }      
+    }
     importance_savedir = os.path.join(cfg.basedir, cfg.expname)
     init_importance(
         render_poses=data_dict['poses'][data_dict['i_train']],
@@ -677,7 +677,7 @@ def vq_finetune(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, data_dict, st
     model.vq.train()
     VQ_CHUNK = 80000
     with torch.no_grad():
-        model.init_cdf_mask(args.importance_prune, args.importance_include) # voxel prune  
+        model.init_cdf_mask(args.importance_prune, args.importance_include) # voxel prune
         vq_mask = torch.logical_xor(model.non_prune_mask,  model.keep_mask)
         if vq_mask.any():
             k0_needs_vq = model.k0.grid.clone().reshape(model.k0_dim, -1).T[vq_mask]
@@ -696,16 +696,16 @@ def vq_finetune(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, data_dict, st
 
     #=================== Appply voxel pruning and vector quanzation  ====================
     all_indices = model.fully_vq_reformat(args.importance_prune, args.importance_include)
-   
 
-    
+
+
     #=================== Joint finetune VQ-DVGO   ====================
     model.train()
     model.vq.eval()
-    ckpt = torch.load(load_ckpt_path) 
+    ckpt = torch.load(load_ckpt_path)
     optimizer = utils.create_optimizer_or_freeze_model(model, cfg_train, global_step=0)
     optimizer.load_state_dict(ckpt['optimizer_state_dict'])
-   
+
     # reset initial learning rate
     for i_opt_g, param_group in enumerate(optimizer.param_groups):
         param_group['lr'] = param_group['lr'] * 5
@@ -768,7 +768,7 @@ def vq_finetune(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, data_dict, st
             loss += cfg_train.weight_rgbper * rgbper_loss
         loss.backward()
 
-        
+
         if global_step<cfg_train.tv_before and global_step>cfg_train.tv_after and global_step%cfg_train.tv_every==0:
             if cfg_train.weight_tv_density>0:
                 model.density_total_variation_add_grad(
@@ -776,18 +776,18 @@ def vq_finetune(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, data_dict, st
             if cfg_train.weight_tv_k0>0:
                 model.k0_total_variation_add_grad(
                     cfg_train.weight_tv_k0/len(rays_o), global_step<cfg_train.tv_dense_before)
-        
-        
+
+
         optimizer.step()
 
-        # synchornize codebook for every 10 iterations  
+        # synchornize codebook for every 10 iterations
         if global_step%10 == 0:
             with torch.no_grad():
-                gather_grid = torch.zeros(all_indices.max(), model.k0_dim).to(device) 
+                gather_grid = torch.zeros(all_indices.max(), model.k0_dim).to(device)
                 k0_grid=model.k0.grid.reshape(model.k0_dim,-1).T
                 out = torch_scatter.scatter(k0_grid, index=all_indices, dim=0, reduce='mean')
                 max_element = min(out.shape[0],model.used_kwargs["codebook_size"])
-                model.vq._codebook.embed[:max_element,:].copy_(out[:max_element,:]) 
+                model.vq._codebook.embed[:max_element,:].copy_(out[:max_element,:])
 
                 new_k0_grid = torch.zeros(all_indices.shape[0], model.k0_dim).to(device)
                 new_k0_grid = out[all_indices].T.reshape(*model.k0.grid.shape)
@@ -808,7 +808,7 @@ def vq_finetune(args, cfg, cfg_model, cfg_train, xyz_min, xyz_max, data_dict, st
                        f'Loss: {loss.item():.9f} / PSNR: {np.mean(psnr_lst):5.2f} / '
                        f'Eps: {eps_time_str}')
             psnr_lst = []
-        
+
 
     if global_step != -1:
         torch.save({
@@ -891,7 +891,7 @@ def init_importance(model, render_poses, HW, Ks, ndc, render_kwargs, savedir=Non
     if os.path.exists(imp_path):
         print('load exsited importance calculation')
         model.importance = torch.load(imp_path)
-        return 
+        return
     assert len(render_poses) == len(HW) and len(HW) == len(Ks)
     print('start importance calculation')
     if render_factor!=0:
@@ -900,7 +900,7 @@ def init_importance(model, render_poses, HW, Ks, ndc, render_kwargs, savedir=Non
         HW = (HW/render_factor).astype(int)
         Ks[:, :2, :3] /= render_factor
 
-   
+
     pseudo_grid = torch.ones_like(model.density.grid)
     pseudo_grid.requires_grad = True
     for i, c2w in enumerate(tqdm(render_poses)):
@@ -914,7 +914,7 @@ def init_importance(model, render_poses, HW, Ks, ndc, render_kwargs, savedir=Non
         rays_o = rays_o.flatten(0,-2)
         rays_d = rays_d.flatten(0,-2)
         viewdirs = viewdirs.flatten(0,-2)
-      
+
         i = 0
         for ro, rd, vd in zip(rays_o.split(8192, 0), rays_d.split(8192, 0), viewdirs.split(8192, 0)):
             ret = model.forward_imp(ro, rd, vd, pseudo_grid, **render_kwargs)
@@ -926,9 +926,9 @@ def init_importance(model, render_poses, HW, Ks, ndc, render_kwargs, savedir=Non
     model.importance = pseudo_grid.grad.clone()
     model.density.grid.grad = None
     torch.save(model.importance, imp_path)
-    return 
+    return
 
-    
+
 
 
 if __name__=='__main__':
@@ -996,7 +996,7 @@ if __name__=='__main__':
             model_class = dcvgo.DirectContractedVoxGO
         else:
             model_class = dvgo.DirectVoxGO
-        
+
         model_fine = utils.load_model(model_class, ckpt_path_fine).to(device)
         model_vq = utils.load_model(model_class, ckpt_path_vq).to(device)
         stepsize = cfg.fine_model_and_render.stepsize
@@ -1040,15 +1040,15 @@ if __name__=='__main__':
         os.system(f"zip {saving_path+'.zip'} {saving_path}")
         model_vq.eval()
         model_vq.importance = torch.load( os.path.join(cfg.basedir, cfg.expname, 'importance.pth'))
-        model_vq.fully_vq_reformat(args.importance_prune, args.importance_include, 
+        model_vq.fully_vq_reformat(args.importance_prune, args.importance_include,
                                     save_path=os.path.join(cfg.basedir, cfg.expname))
 
         model_vq.mask_cache.mask[:] = True
         model_vq.update_occupancy_cache()
 
-           
-    
-   
+
+
+
     # render trainset and eval
     if args.render_train:
         if args.render_fine:

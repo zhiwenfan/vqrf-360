@@ -67,7 +67,7 @@ class TrilinearIntepolation(nn.Module):
         z_grid = z_grid.expand(batch_size,num_chans, 1, grid_height, grid_width)
         sampled_in_3d = sampled_in_2d.gather(2, z_grid).squeeze(2)
         return sampled_in_3d
-    
+
     def forward(self, input_feats, sampling_grid, vq):
         assert input_feats.ndimension()==5, 'input_feats should be of shape [B,F,D,H,W]'
         assert sampling_grid.ndimension()==4, 'sampling_grid should be of shape [B,H,W,3]'

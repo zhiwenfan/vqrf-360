@@ -16,7 +16,7 @@ data = dict(
 coarse_train = dict(N_iters=0)
 
 fine_train = dict(
-    N_iters=40000,
+    N_iters=4000,
     N_rand=4096,
     lrate_decay=80,
     ray_sampler='flatten',
