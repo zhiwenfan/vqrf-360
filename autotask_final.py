@@ -33,8 +33,8 @@ args = parser.parse_args()
 PSNR_FILE_NAME = 'test_psnr.txt'
 
 def run_exp(env,  config, datadir, expname, basedir):
-    
-  
+
+
     psnr_file_threestep_path = os.path.join(basedir, expname,'render_test_vq_last','mean.txt' )
     psnr_file_path = os.path.join(basedir, expname,'render_test_fine_last','mean.txt' )
     cfg = mmcv.Config.fromfile(config)
@@ -42,16 +42,16 @@ def run_exp(env,  config, datadir, expname, basedir):
     cfg.data.datadir = datadir
     cfg.basedir = basedir
     cfg.vq_model_and_render.codebook_size = args.codebook_size
-    
+
     auto_config_path = f'./configs/auto/{expname}.py'
     cfg.dump(auto_config_path)
     print('********************************************')
-    
-    
+
+
     base_cmd = ['python', 'run_final.py',  '--config', auto_config_path, '--eval_ssim','--eval_lpips_vgg',
-            '--eval_lpips_alex' , '--render_test',  '--fully_vq --render_fine ', 
+            '--eval_lpips_alex' , '--render_test',  '--fully_vq --render_fine ',
             f'--importance_prune {args.importance_prune}' ,f'--importance_include {args.importance_include}']
-    if os.path.isfile(psnr_file_path) or  os.path.isfile(psnr_file_threestep_path): 
+    if os.path.isfile(psnr_file_path) or  os.path.isfile(psnr_file_threestep_path):
         base_cmd.append('--render_only')
         # pass
     if args.dump_images:
@@ -73,7 +73,7 @@ def process_main(device, queue):
         task = queue.get()
         if len(task) == 0:
             break
-      
+
         run_exp(env, **task)
 
 
@@ -95,8 +95,14 @@ DatasetSetting={
         "cfg": f"./configs/batch_test/{args.configname}.py",
         "basedir":f"./logs/{args.configname}",
         "scene_list":['Bike', 'Lifestyle', 'Palace', 'Robot', 'Spaceship', 'Steamtrain', 'Toad', 'Wineholder',]
+    },
+    "llff":{
+        "data": "/ssd1/zhiwen/datasets/360_v2/",
+        "cfg": f"./configs/batch_test/{args.configname}.py",
+        "basedir":f"./logs/{args.configname}",
+        "scene_list":['bicycle', 'room', 'garden']
     }
-    
+
 }
 
 datasetting = DatasetSetting[args.dataset]
@@ -105,7 +111,7 @@ all_tasks = []
 for scene in datasetting["scene_list"]:
     task: Dict = {}
     task['datadir'] = f'{datasetting["data"]}/{scene}'
-    task['expname'] = f'{args.configname}_{scene}'  
+    task['expname'] = f'{args.configname}_{scene}'
     task["config"] = datasetting['cfg']
     task["basedir"] = datasetting["basedir"]
     assert os.path.exists(task['datadir']), task['datadir'] + ' does not exist'
