@@ -100,7 +100,8 @@ DatasetSetting={
         "data": "/ssd1/zhiwen/datasets/360_v2/",
         "cfg": f"./configs/batch_test/{args.configname}.py",
         "basedir":f"./logs/{args.configname}",
-        "scene_list":['bicycle', 'room', 'garden']
+        "scene_list":['bicycle']
+        # "scene_list":['bicycle', 'room', 'garden']
     }
 
 }

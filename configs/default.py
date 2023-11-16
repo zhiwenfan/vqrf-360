@@ -77,7 +77,7 @@ fine_train.update(dict(
     pg_scale=[1000, 2000, 3000, 4000],
     skip_zero_grad_fields=['density', 'k0'],
     importance_step=1000000,
-    
+
 ))
 
 ''' Template of model and rendering options
@@ -109,8 +109,8 @@ coarse_model_and_render = dict(
 
 fine_model_and_render = deepcopy(coarse_model_and_render)
 fine_model_and_render.update(dict(
-    num_voxels=160**3,
-    num_voxels_base=160**3,
+    num_voxels=320**3,
+    num_voxels_base=320**3,
     rgbnet_dim=12,
     alpha_init=1e-2,
     fast_color_thres=1e-4,

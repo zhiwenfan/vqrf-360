@@ -18,9 +18,9 @@ data = dict(
 
 
 fine_train = dict(
-    N_iters=20000,
-    importance_step=20000,
-    prune_step=20000,
+    N_iters=2000,
+    importance_step=2000,
+    prune_step=2000,
 )
 
 fine_model_and_render = dict(
